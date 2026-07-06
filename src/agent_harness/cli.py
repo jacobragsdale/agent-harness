@@ -1,8 +1,9 @@
 """`loop` — the single entry point.
 
-loop run                 # babysit PRs, groom backlog, then work tickets
-loop run --ticket 1234   # one ticket
-loop run --skip-groom    # straight to the pipeline
+loop run                 # babysit PRs, pick a batch, groom it, work it
+loop run --batch 3       # pick 3 per batch instead of 5
+loop run --ticket 1234   # one ticket, no picker
+loop run --skip-groom    # no grooming pass
 loop groom               # interactive grooming pass only
 loop babysit             # check open PRs only
 loop status              # where every ticket stands
@@ -61,14 +62,21 @@ def _cmd_run(settings: Settings, args: argparse.Namespace) -> None:
             f"[yellow]skipped (already exist there and are not ours): "
             f"{', '.join(result.skipped)}[/yellow]"
         )
-    run_loop(ctx, only_ticket=args.ticket, max_tickets=args.max, skip_groom=args.skip_groom)
+    run_loop(
+        ctx,
+        only_ticket=args.ticket,
+        max_tickets=args.max,
+        skip_groom=args.skip_groom,
+        batch_size=args.batch,
+    )
 
 
 def _cmd_groom(settings: Settings, _args: argparse.Namespace) -> None:
     ctx = _build_context(settings)
     _require_agent(settings, ctx)
     sync_skills(settings.skills_dir)
-    groom_backlog(ctx, ctx.store.fetch_tickets())
+    tickets = ctx.store.fetch_tickets()
+    groom_backlog(ctx, tickets, tickets)
 
 
 def _cmd_babysit(settings: Settings, _args: argparse.Namespace) -> None:
@@ -118,6 +126,9 @@ def main() -> None:
     run_parser.add_argument("--max", type=int, default=0, help="stop after N tickets")
     run_parser.add_argument(
         "--skip-groom", action="store_true", help="skip the interactive grooming pass"
+    )
+    run_parser.add_argument(
+        "--batch", type=int, default=5, help="tickets picked per batch (default 5)"
     )
     run_parser.set_defaults(func=_cmd_run)
 

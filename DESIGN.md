@@ -30,8 +30,14 @@ tickets file → [groom] → [triage] → [interview] → [plan gate] → [execu
              dup check                                                         advisory    git/gh replies+fixes
 ```
 
-`loop run` orders a developer's day: babysit open PRs first (existing
-commitments), then interactively groom new tickets, then work the pipeline.
+`loop run` orders a developer's session: babysit open PRs first (existing
+commitments), then **pick a batch** — one fast agent call ranks the
+workable backlog (in-flight work, prod issues, stale sprints, priority; the
+`ticket-pick` skill) and suggests `--batch` tickets (default 5) with a
+one-line why each; the developer takes or ignores each suggestion. Ignored
+tickets are left completely untouched on disk (`peek_status` reads state
+without creating folders) and aren't re-suggested that session. The batch
+is groomed and worked; when it finishes, the loop offers to pick another.
 
 ### One session per ticket (from the interview on)
 

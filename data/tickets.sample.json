@@ -43,7 +43,44 @@
       "project": "Platform",
       "tags": ["infra", "ci"],
       "link": "https://dev.azure.com/example/Platform/_workitems/edit/4633",
-      "status": "New"
+      "status": "New",
+      "priority": "3",
+      "iterationPath": "Platform\\Sprint 51"
+    },
+    {
+      "id": "3102",
+      "title": "Reconciliation totals off by a cent on multi-currency invoices",
+      "description": "Rounding happens per line item instead of per invoice, so EUR/USD mixed invoices drift by 0.01-0.03. Finance manually adjusts monthly. Carried over three sprints now.",
+      "project": "Billing",
+      "tags": ["bug"],
+      "link": "https://dev.azure.com/example/Billing/_workitems/edit/3102",
+      "status": "New",
+      "priority": "2",
+      "iterationPath": "Billing\\Sprint 44",
+      "createdDate": "2026-02-11"
+    },
+    {
+      "id": "4701",
+      "title": "Customer search should match on previous company names",
+      "description": "When a customer renames (merger etc.) the old name is kept in name_history but search only hits the current name. Support keeps failing to find renamed accounts.",
+      "project": "CRM",
+      "tags": ["feature"],
+      "link": "https://dev.azure.com/example/CRM/_workitems/edit/4701",
+      "status": "New",
+      "priority": "3",
+      "iterationPath": "CRM\\Sprint 52"
+    },
+    {
+      "id": "4655",
+      "title": "Document the partner-sync onboarding steps",
+      "description": "Adding a new partner feed involves five undocumented manual steps (cert exchange, mapping file, schedule entry, firewall request, test run). Write it down in the integrations runbook.",
+      "project": "Integrations",
+      "tags": ["docs"],
+      "link": "https://dev.azure.com/example/Integrations/_workitems/edit/4655",
+      "status": "New",
+      "priority": "4",
+      "iterationPath": "Integrations\\Sprint 49",
+      "createdDate": "2026-04-20"
     }
   ]
 }

@@ -26,8 +26,12 @@ intelligence lives in version-controlled [skills](skills/).
 
 - **It works your day in the right order.** `loop run` first checks on open
   PRs (CI failures, review comments — drafted responses, gated by you),
-  then interactively grooms new tickets (locates the code, flags
-  duplicates, suggests splits), and only then takes on new work.
+  then picks a batch and grooms it, and only then takes on new work.
+- **Built for a 100-ticket backlog.** Each session, the picker ranks what's
+  workable — in-flight work first, then prod issues, stale-sprint
+  leftovers, priority — and suggests 5 (`--batch N`) with a one-line "why"
+  each. Take or ignore each suggestion; ignored tickets are left completely
+  untouched. Finish the batch and it offers to pick 5 more.
 - **Live interview, not fire-and-forget.** The agent explores the target
   repo first, then asks only the questions the code can't answer — each with
   a "why this matters." Your answers land directly in the context of the
@@ -100,8 +104,9 @@ the local repos the loop may work in and how tickets map to them.
 
 | Command | What it does |
 |---------|--------------|
-| `uv run --env-file .env loop run` | Babysit open PRs, groom new tickets, then work the pipeline |
-| `uv run --env-file .env loop run --ticket 4211` | Process a single ticket |
+| `uv run --env-file .env loop run` | Babysit open PRs, pick a batch of 5, groom it, work it |
+| `uv run --env-file .env loop run --batch 3` | Smaller batches per pick round |
+| `uv run --env-file .env loop run --ticket 4211` | Process a single ticket (no picker) |
 | `uv run --env-file .env loop run --max 1 --skip-groom` | One ticket, no grooming pass (demo mode) |
 | `uv run --env-file .env loop groom` | Interactive grooming pass only |
 | `uv run --env-file .env loop babysit` | One pass over open PRs only |

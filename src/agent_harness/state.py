@@ -47,6 +47,18 @@ class TicketWorkspace:
             )
         return ws
 
+    @staticmethod
+    def peek_status(tickets_dir: Path, ticket_id: str) -> TicketState | None:
+        """Read a ticket's status WITHOUT creating its folder.
+
+        None means the loop has never touched this ticket. Used by the
+        picker/babysitter so unpicked tickets stay untouched on disk.
+        """
+        state_file = tickets_dir / ticket_id / "state.json"
+        if not state_file.exists():
+            return None
+        return TicketState(json.loads(state_file.read_text(encoding="utf-8"))["status"])
+
     # -- state.json ---------------------------------------------------------
 
     @property

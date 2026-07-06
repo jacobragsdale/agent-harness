@@ -14,6 +14,7 @@ from .stages.babysit import run_babysit
 from .stages.execute import run_execute
 from .stages.groom import run_groom
 from .stages.interview import run_interview
+from .stages.pick import pick_batch, workable_tickets
 from .stages.plan import run_plan_gate
 from .stages.retro import run_retro
 from .stages.triage import run_triage
@@ -105,12 +106,16 @@ def run_ticket(ctx: LoopContext, ticket: Ticket) -> TicketState:
     return ws.status
 
 
-def groom_backlog(ctx: LoopContext, tickets: list[Ticket]) -> None:
-    """Interactive grooming pass over every NEW ticket, before any triage."""
+def groom_backlog(ctx: LoopContext, to_groom: list[Ticket], backlog: list[Ticket]) -> None:
+    """Interactive grooming pass over the NEW tickets in `to_groom`.
+
+    `backlog` is the full ticket list — grooming compares against it for
+    duplicate detection even when only a small batch is being groomed.
+    """
     fresh = [
         t
-        for t in tickets
-        if TicketWorkspace.open(ctx.settings.tickets_dir, t).status == TicketState.NEW
+        for t in to_groom
+        if TicketWorkspace.peek_status(ctx.settings.tickets_dir, t.id) in (None, TicketState.NEW)
     ]
     if not fresh:
         return
@@ -118,7 +123,7 @@ def groom_backlog(ctx: LoopContext, tickets: list[Ticket]) -> None:
     for ticket in fresh:
         ws = TicketWorkspace.open(ctx.settings.tickets_dir, ticket)
         try:
-            run_groom(ctx, ws, tickets)
+            run_groom(ctx, ws, backlog)
         except Exception as e:
             # Grooming is best-effort enrichment: never let it block triage.
             ui.info(f"[yellow]grooming failed for {ticket.id} ({e}) — leaving as new[/yellow]")
@@ -127,9 +132,9 @@ def groom_backlog(ctx: LoopContext, tickets: list[Ticket]) -> None:
 def babysit_open_prs(ctx: LoopContext, tickets: list[Ticket]) -> None:
     """One pass over every PR_OPEN ticket: merged/closed/events/quiet."""
     for ticket in tickets:
-        ws = TicketWorkspace.open(ctx.settings.tickets_dir, ticket)
-        if ws.status != TicketState.PR_OPEN:
+        if TicketWorkspace.peek_status(ctx.settings.tickets_dir, ticket.id) != TicketState.PR_OPEN:
             continue
+        ws = TicketWorkspace.open(ctx.settings.tickets_dir, ticket)
         try:
             run_babysit(ctx, ws)
         except Exception as e:
@@ -141,6 +146,7 @@ def run_loop(
     only_ticket: str | None = None,
     max_tickets: int = 0,
     skip_groom: bool = False,
+    batch_size: int = 5,
 ) -> None:
     tickets = ctx.store.fetch_tickets()
     if only_ticket:
@@ -148,21 +154,45 @@ def run_loop(
         if not tickets:
             raise SystemExit(f"ticket {only_ticket!r} not found in the tickets file")
 
-    # A developer's day, in order: check on open PRs (existing commitments),
-    # groom what's new, then take on work.
+    # A developer's session, in order: check on open PRs (existing
+    # commitments), then pick a small batch from the backlog, groom it, work
+    # it — and optionally go around again.
     babysit_open_prs(ctx, tickets)
-    if not skip_groom:
-        groom_backlog(ctx, tickets)
 
-    handled = 0
-    for ticket in tickets:
-        ws = TicketWorkspace.open(ctx.settings.tickets_dir, ticket)
-        if ws.status in TERMINAL_STATES or ws.status == TicketState.PR_OPEN:
-            continue
-        outcome = run_ticket(ctx, ticket)
-        handled += 1
-        ui.info(f"[bold]{ticket.id} → {outcome}[/bold]")
-        if max_tickets and handled >= max_tickets:
+    ignored: set[str] = set()  # session-scoped; these stay untouched on disk
+    session_handled = 0
+    while True:
+        batch = tickets if only_ticket else pick_batch(ctx, tickets, batch_size, ignored)
+        if not batch:
+            ui.info("no workable tickets to pick from")
             break
-    if handled == 0:
-        ui.info("no tickets to work — everything is parked, terminal, or awaiting PR events")
+
+        if not skip_groom:
+            groom_backlog(ctx, batch, tickets)
+
+        for ticket in batch:
+            status = TicketWorkspace.peek_status(ctx.settings.tickets_dir, ticket.id)
+            # Grooming may have deferred/rejected it out of the batch.
+            if status in TERMINAL_STATES or status == TicketState.PR_OPEN:
+                continue
+            outcome = run_ticket(ctx, ticket)
+            session_handled += 1
+            ui.info(f"[bold]{ticket.id} → {outcome}[/bold]")
+            if max_tickets and session_handled >= max_tickets:
+                ui.info(f"--max {max_tickets} reached")
+                return
+
+        if only_ticket:
+            break
+        remaining = workable_tickets(ctx, tickets, ignored)
+        if not remaining:
+            ui.info("backlog exhausted — nothing workable left")
+            break
+        if not ui.confirm(
+            f"Batch done ({session_handled} ticket(s) this session, "
+            f"{len(remaining)} workable left). Pick another {batch_size}?",
+            default=False,
+        ):
+            break
+    if session_handled == 0:
+        ui.info("no tickets worked — everything parked, terminal, ignored, or skipped")
