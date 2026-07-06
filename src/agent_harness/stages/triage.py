@@ -20,9 +20,11 @@ TASK_TYPES = ("fix-bug", "new-feature", "prod-issue", "qa-test", "infra-maintena
 
 def run_triage(ctx: LoopContext, ws: TicketWorkspace) -> dict:
     ui.stage(f"Triage — {ws.ticket.id}: {ws.ticket.title}")
+    grooming = ws.read_artifact("grooming.json")
+    grooming_block = f"\n\nGrooming notes (pre-triage recon):\n{grooming}" if grooming else ""
     prompt = (
         "/ticket-triage\n\n"
-        f"{ws.ticket.summary_block()}\n\n"
+        f"{ws.ticket.summary_block()}{grooming_block}\n\n"
         f"Registered repos:\n{registry_block(ctx.repos)}\n\n"
         f"Valid task_type values: {', '.join(TASK_TYPES)}"
     )

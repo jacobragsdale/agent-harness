@@ -1,7 +1,10 @@
 """`loop` — the single entry point.
 
-loop run                 # process every non-terminal ticket
+loop run                 # babysit PRs, groom backlog, then work tickets
 loop run --ticket 1234   # one ticket
+loop run --skip-groom    # straight to the pipeline
+loop groom               # interactive grooming pass only
+loop babysit             # check open PRs only
 loop status              # where every ticket stands
 loop sync-skills         # push skills/ to ~/.cursor/skills
 """
@@ -20,7 +23,7 @@ from .adapters.tickets import MockTicketStore
 from .config import Settings, load_repos
 from .context import LoopContext
 from .cursor import CursorAgent
-from .loop import run_loop
+from .loop import babysit_open_prs, groom_backlog, run_loop
 from .skills_sync import sync_skills
 
 
@@ -29,23 +32,28 @@ def _build_context(settings: Settings) -> LoopContext:
     if not repos_file.exists():
         raise SystemExit("repos.toml not found — copy repos.example.toml and register your repos")
     journal = settings.tickets_dir / "journal.jsonl"
+    inbox = settings.tickets_dir / "pr-inbox.json"
     return LoopContext(
         settings=settings,
         repos=load_repos(repos_file),
         agent=CursorAgent(bin_name=settings.agent_bin, model=settings.model),
         store=MockTicketStore(settings.tickets_file, journal),
-        prs=MockPRClient(journal),
+        prs=MockPRClient(journal, inbox),
     )
 
 
-def _cmd_run(settings: Settings, args: argparse.Namespace) -> None:
-    ctx = _build_context(settings)
+def _require_agent(settings: Settings, ctx: LoopContext) -> None:
     if not ctx.agent.available():
         raise SystemExit(
             f"Cursor CLI binary {settings.agent_bin!r} not on PATH. Install it:\n"
             "  Windows:  irm 'https://cursor.com/install?win32=true' | iex\n"
             "  mac/linux: curl https://cursor.com/install -fsS | bash"
         )
+
+
+def _cmd_run(settings: Settings, args: argparse.Namespace) -> None:
+    ctx = _build_context(settings)
+    _require_agent(settings, ctx)
     result = sync_skills(settings.skills_dir)
     ui.info(f"synced {len(result.synced)} skills to ~/.cursor/skills")
     if result.skipped:
@@ -53,7 +61,21 @@ def _cmd_run(settings: Settings, args: argparse.Namespace) -> None:
             f"[yellow]skipped (already exist there and are not ours): "
             f"{', '.join(result.skipped)}[/yellow]"
         )
-    run_loop(ctx, only_ticket=args.ticket, max_tickets=args.max)
+    run_loop(ctx, only_ticket=args.ticket, max_tickets=args.max, skip_groom=args.skip_groom)
+
+
+def _cmd_groom(settings: Settings, _args: argparse.Namespace) -> None:
+    ctx = _build_context(settings)
+    _require_agent(settings, ctx)
+    sync_skills(settings.skills_dir)
+    groom_backlog(ctx, ctx.store.fetch_tickets())
+
+
+def _cmd_babysit(settings: Settings, _args: argparse.Namespace) -> None:
+    ctx = _build_context(settings)
+    _require_agent(settings, ctx)
+    sync_skills(settings.skills_dir)
+    babysit_open_prs(ctx, ctx.store.fetch_tickets())
 
 
 def _cmd_status(settings: Settings, _args: argparse.Namespace) -> None:
@@ -91,10 +113,19 @@ def main() -> None:
     parser.add_argument("--root", type=Path, default=None, help="orchestrator repo root")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = sub.add_parser("run", help="process tickets through the pipeline")
+    run_parser = sub.add_parser("run", help="babysit PRs, groom backlog, then work tickets")
     run_parser.add_argument("--ticket", help="process only this ticket id")
     run_parser.add_argument("--max", type=int, default=0, help="stop after N tickets")
+    run_parser.add_argument(
+        "--skip-groom", action="store_true", help="skip the interactive grooming pass"
+    )
     run_parser.set_defaults(func=_cmd_run)
+
+    groom_parser = sub.add_parser("groom", help="interactive grooming pass over new tickets")
+    groom_parser.set_defaults(func=_cmd_groom)
+
+    babysit_parser = sub.add_parser("babysit", help="one pass over open PRs")
+    babysit_parser.set_defaults(func=_cmd_babysit)
 
     status_parser = sub.add_parser("status", help="show every ticket's pipeline state")
     status_parser.set_defaults(func=_cmd_status)

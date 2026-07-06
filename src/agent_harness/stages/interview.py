@@ -28,11 +28,13 @@ def run_interview(ctx: LoopContext, ws: TicketWorkspace) -> None:
     repo = ctx.repo(ws.get_field("repo"))
     triage = ws.read_artifact("triage.json") or "{}"
     task_type = ws.get_field("task_type") or "fix-bug"
+    grooming = ws.read_artifact("grooming.json")
+    grooming_block = f"\n\nGrooming notes:\n{grooming}" if grooming else ""
 
     prompt = (
         "/ticket-interview\n\n"
         f"{ws.ticket.summary_block()}\n\n"
-        f"Triage result:\n{triage}\n\n"
+        f"Triage result:\n{triage}{grooming_block}\n\n"
         f"Task-type playbook to consult: /{task_type}\n"
         "Explore this repository as needed before asking your questions."
     )

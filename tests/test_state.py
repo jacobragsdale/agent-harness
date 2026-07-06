@@ -31,6 +31,41 @@ def test_legal_transition_chain(tmp_path, ticket):
     assert ws.status == TicketState.DONE
 
 
+def test_grooming_path(tmp_path, ticket):
+    ws = TicketWorkspace.open(tmp_path, ticket)
+    ws.transition(TicketState.GROOMED)
+    ws.transition(TicketState.TRIAGED)
+    assert ws.status == TicketState.TRIAGED
+
+
+def test_grooming_can_be_skipped(tmp_path, ticket):
+    ws = TicketWorkspace.open(tmp_path, ticket)
+    ws.transition(TicketState.TRIAGED)  # NEW → TRIAGED stays legal
+    assert ws.status == TicketState.TRIAGED
+
+
+def test_duplicate_dropped_at_grooming(tmp_path, ticket):
+    ws = TicketWorkspace.open(tmp_path, ticket)
+    ws.transition(TicketState.REJECTED)
+    assert ws.status == TicketState.REJECTED
+
+
+def test_pr_open_can_reject(tmp_path, ticket):
+    ws = TicketWorkspace.open(tmp_path, ticket)
+    for state in (
+        TicketState.TRIAGED,
+        TicketState.INTERVIEWING,
+        TicketState.AWAITING_APPROVAL,
+        TicketState.APPROVED,
+        TicketState.EXECUTING,
+        TicketState.VALIDATING,
+        TicketState.PR_OPEN,
+    ):
+        ws.transition(state)
+    ws.transition(TicketState.REJECTED)  # PR closed without merge
+    assert ws.status == TicketState.REJECTED
+
+
 def test_cannot_skip_approval_gate(tmp_path, ticket):
     ws = TicketWorkspace.open(tmp_path, ticket)
     ws.transition(TicketState.TRIAGED)

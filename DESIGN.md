@@ -23,11 +23,15 @@ for each *cognitive* step. Skills define all agent behavior; Python owns all
 control flow, state, and side effects.
 
 ```
-tickets file → [triage] → [interview] → [plan gate] → [execute] → [validate] → [PR + status] → [retro]
-                  │            │             │             │            │             │           │
-              plan mode    live REPL     you approve    --force     fresh eyes    orchestrator  learnings
-              (read-only)  (--resume)    or edit        worktree    (new session) does git/gh   auto-append
+tickets file → [groom] → [triage] → [interview] → [plan gate] → [execute] → [validate] → [PR] → [babysit] → [retro]
+                  │           │           │             │             │            │         │        │          │
+             interactive  plan mode   live REPL     you approve    --force     fresh eyes  orch.  PR events  learnings
+             enrichment   (read-only) (--resume)    or edit        worktree    (new sess.) does   gated      auto-append
+             dup check                                                         advisory    git/gh replies+fixes
 ```
+
+`loop run` orders a developer's day: babysit open PRs first (existing
+commitments), then interactively groom new tickets, then work the pipeline.
 
 ### One session per ticket (from the interview on)
 
@@ -43,10 +47,18 @@ and retro deliberately use **fresh sessions** (fresh-eyes principle).
 Per-ticket status, persisted in `tickets/<id>/state.json`:
 
 ```
-new → triaged → interviewing → awaiting_approval → approved → executing
-    → validating → pr_open → done
-                                        ↘ failed / rejected / deferred
+new → groomed → triaged → interviewing → awaiting_approval → approved
+    → executing → validating → pr_open → done
+                                  ↘ failed / rejected / deferred
 ```
+
+Grooming is skippable (`new → triaged` stays legal). `pr_open` is a
+*parked* state: the pipeline stops there and the **babysitter** drives it —
+merged → done, closed → rejected, CI failures/review comments/conflicts →
+drafted responses in the ticket's own session, gated by you, applied with
+write access, replies/pushes journaled through the PR adapter. The mock
+adapter answers status polls from a hand-editable `tickets/pr-inbox.json`
+so PR events can be simulated in a demo.
 
 The loop is resumable: re-running picks each ticket up at its persisted state.
 Every transition also calls `TicketStore.update_status()` (journaled by the
@@ -98,10 +110,10 @@ symlinked — Windows) to `~/.cursor/skills/` before each run, so they're
 discoverable from any target repo workspace.
 
 - **Stage skills** (`disable-model-invocation: true`, invoked as
-  `/ticket-triage` etc. by the orchestrator): `ticket-triage`,
-  `ticket-interview`, `ticket-plan`, `ticket-execute`, `ticket-validate`,
-  `ticket-retro`. Each defines the stage's job and an exact JSON output
-  contract the orchestrator parses.
+  `/ticket-triage` etc. by the orchestrator): `backlog-groom`,
+  `ticket-triage`, `ticket-interview`, `ticket-plan`, `ticket-execute`,
+  `ticket-validate`, `pr-babysit`, `ticket-retro`. Each defines the stage's
+  job and an exact JSON output contract the orchestrator parses.
 - **Task-type playbooks** (referenced by stage prompts after triage
   classifies the ticket): `fix-bug`, `new-feature`, `prod-issue`, `qa-test`,
   `infra-maintenance`.

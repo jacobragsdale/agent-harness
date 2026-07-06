@@ -9,6 +9,7 @@ from typing import Any
 
 class TicketState(StrEnum):
     NEW = "new"
+    GROOMED = "groomed"
     TRIAGED = "triaged"
     INTERVIEWING = "interviewing"
     AWAITING_APPROVAL = "awaiting_approval"
@@ -27,9 +28,21 @@ TERMINAL_STATES = frozenset(
 )
 
 # Legal transitions; the orchestrator refuses anything else so a bug can't
-# silently skip the approval gate.
+# silently skip the approval gate. PR_OPEN is a *parked* state: run_ticket
+# stops there and the babysitter drives it to done/rejected on PR events.
 TRANSITIONS: dict[TicketState, frozenset[TicketState]] = {
-    TicketState.NEW: frozenset({TicketState.TRIAGED, TicketState.FAILED}),
+    TicketState.NEW: frozenset(
+        {
+            TicketState.GROOMED,
+            TicketState.TRIAGED,  # grooming skipped
+            TicketState.DEFERRED,
+            TicketState.REJECTED,  # e.g. confirmed duplicate at grooming
+            TicketState.FAILED,
+        }
+    ),
+    TicketState.GROOMED: frozenset(
+        {TicketState.TRIAGED, TicketState.DEFERRED, TicketState.REJECTED, TicketState.FAILED}
+    ),
     TicketState.TRIAGED: frozenset(
         {TicketState.INTERVIEWING, TicketState.DEFERRED, TicketState.REJECTED, TicketState.FAILED}
     ),
@@ -49,7 +62,7 @@ TRANSITIONS: dict[TicketState, frozenset[TicketState]] = {
     TicketState.VALIDATING: frozenset(
         {TicketState.PR_OPEN, TicketState.REJECTED, TicketState.FAILED}
     ),
-    TicketState.PR_OPEN: frozenset({TicketState.DONE, TicketState.FAILED}),
+    TicketState.PR_OPEN: frozenset({TicketState.DONE, TicketState.REJECTED, TicketState.FAILED}),
 }
 
 

@@ -23,8 +23,13 @@ to these, so going live is implementing two classes and swapping them in
     method needs a mapping table (probably config in repos.toml or .env).
   - `add_comment()` — work-item discussion comment.
 - `AzReposPRClient` in [prs.py](src/agent_harness/adapters/prs.py)
-  - Must `git push` the worktree's branch first (the execute agent commits
-    but is forbidden to push), then `az repos pr create` (or `gh pr create`).
+  - `push_branch()` — `git -C <worktree> push -u origin <branch>` (the
+    execute agent commits but is forbidden to push).
+  - `create_pr()` — `az repos pr create` (or `gh pr create`).
+  - `get_pr_status()` — merge state + build status + unresolved review
+    threads, mapped to `PRStatus` (the babysitter polls this; the mock
+    reads `tickets/pr-inbox.json`).
+  - `post_reply()` — reply on a PR thread.
   - The branch name == worktree name == `ticket-<id>`; the worktree path is
     in `tickets/<id>/state.json` under `worktree_path`.
 
@@ -81,6 +86,11 @@ executed by this codebase. Check in this order:
    `~/.cursor/worktrees/<repo-dir-name>/<worktree-name>` — verify.
 7. Re-drive of an interrupted `EXECUTING` ticket passes `--worktree` again
    for a worktree that already exists — check the CLI accepts that.
+8. Babysitter draft/apply cycle: the draft call resumes the ticket session
+   with `--workspace <worktree_path>` while the session was created with
+   `--workspace <repo>` — verify resume tolerates the workspace change
+   (same fallback as #5 if not: fresh session with the plan + diff in the
+   prompt).
 
 ## 4. Safety config for target repos
 
@@ -112,12 +122,14 @@ improvement.
   annoys.
 - **Worktree cleanup**: nothing removes `~/.cursor/worktrees/ticket-*` after
   a PR merges. Add a `loop cleanup <id>` command eventually.
-- **Parallel execution**: design supports it (per-ticket state, worktrees);
-  the interview is the serial bottleneck. A `--batch` mode could interview
-  several tickets first, then execute them concurrently.
 - **DevOps state mapping** (see §1) and **PR body format** (currently the
   raw final plan markdown) will both need taste passes with real tickets.
+- **Ticket splits at grooming**: the groom stage records split suggestions
+  but can't create tickets (mock store is read-only for creation). When the
+  real store lands, add `create_ticket()` and wire the split action.
 - No LICENSE file yet — decide before advertising the repo.
+- Bigger-picture enhancements (digest, graduated autonomy, patrols, batch
+  interviews) live in [IDEAS.md](IDEAS.md).
 
 ## What is deliberately NOT a TODO
 

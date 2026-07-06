@@ -9,7 +9,7 @@ project is that missing middle: an agentic loop that takes your Azure DevOps
 tickets and drives each one through
 
 ```
-triage → interview YOU → plan → your approval → execute → fresh-eyes validation → PR → retro
+groom → triage → interview YOU → plan → your approval → execute → fresh-eyes validation → PR → babysit → retro
 ```
 
 with a hard rule: **nothing executes until you've been interviewed and have
@@ -24,6 +24,10 @@ intelligence lives in version-controlled [skills](skills/).
 
 ## Why it's interesting
 
+- **It works your day in the right order.** `loop run` first checks on open
+  PRs (CI failures, review comments — drafted responses, gated by you),
+  then interactively grooms new tickets (locates the code, flags
+  duplicates, suggests splits), and only then takes on new work.
 - **Live interview, not fire-and-forget.** The agent explores the target
   repo first, then asks only the questions the code can't answer — each with
   a "why this matters." Your answers land directly in the context of the
@@ -96,11 +100,19 @@ the local repos the loop may work in and how tickets map to them.
 
 | Command | What it does |
 |---------|--------------|
-| `uv run --env-file .env loop run` | Process every non-terminal ticket through the pipeline |
+| `uv run --env-file .env loop run` | Babysit open PRs, groom new tickets, then work the pipeline |
 | `uv run --env-file .env loop run --ticket 4211` | Process a single ticket |
-| `uv run --env-file .env loop run --max 1` | Stop after one ticket (demo mode) |
+| `uv run --env-file .env loop run --max 1 --skip-groom` | One ticket, no grooming pass (demo mode) |
+| `uv run --env-file .env loop groom` | Interactive grooming pass only |
+| `uv run --env-file .env loop babysit` | One pass over open PRs only |
 | `uv run --env-file .env loop status` | Table of every ticket's pipeline state |
 | `uv run --env-file .env loop sync-skills` | Copy `skills/` to `~/.cursor/skills` |
+
+To simulate PR events for the babysitter in demo mode, edit
+`tickets/pr-inbox.json` (format documented in
+[prs.py](src/agent_harness/adapters/prs.py)) — add a review comment or set
+`"ci": "failing"`, then run `loop babysit`. Future directions live in
+[IDEAS.md](IDEAS.md).
 
 The sample tickets in [data/tickets.sample.json](data/tickets.sample.json)
 cover the five task types (bug, feature, prod issue, QA, infra), each with a

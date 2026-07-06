@@ -10,7 +10,9 @@ from . import ui
 from .context import LoopContext
 from .cursor import AgentError
 from .models import TERMINAL_STATES, Ticket, TicketState
+from .stages.babysit import run_babysit
 from .stages.execute import run_execute
+from .stages.groom import run_groom
 from .stages.interview import run_interview
 from .stages.plan import run_plan_gate
 from .stages.retro import run_retro
@@ -42,9 +44,7 @@ def _pr_gate(ctx: LoopContext, ws: TicketWorkspace) -> None:
     ws.transition(TicketState.PR_OPEN)
     ctx.store.update_status(ws.ticket.id, "pr_open", note=pr.url)
     ctx.store.add_comment(ws.ticket.id, f"PR opened: {pr.url}")
-    ui.info(f"PR recorded: {pr.url}")
-    ws.transition(TicketState.DONE)
-    ctx.store.update_status(ws.ticket.id, "done")
+    ui.info(f"PR recorded: {pr.url} — the babysitter tracks it from here")
 
 
 def run_ticket(ctx: LoopContext, ticket: Ticket) -> TicketState:
@@ -56,7 +56,10 @@ def run_ticket(ctx: LoopContext, ticket: Ticket) -> TicketState:
     try:
         while ws.status not in TERMINAL_STATES:
             status = ws.status
-            if status == TicketState.NEW:
+            if status == TicketState.PR_OPEN:
+                # Parked: the babysitter phase drives it to done/rejected.
+                break
+            if status in (TicketState.NEW, TicketState.GROOMED):
                 run_triage(ctx, ws)
             elif status == TicketState.TRIAGED:
                 run_interview(ctx, ws)
@@ -70,9 +73,6 @@ def run_ticket(ctx: LoopContext, ticket: Ticket) -> TicketState:
             elif status == TicketState.VALIDATING:
                 run_validate(ctx, ws)
                 _pr_gate(ctx, ws)
-            elif status == TicketState.PR_OPEN:
-                ws.transition(TicketState.DONE)
-                ctx.store.update_status(ticket.id, "done")
     except Exception as e:
         # Any stage failure (agent error, unknown repo from triage, missing
         # worktree, test-command timeout) fails THIS ticket, not the loop.
@@ -83,11 +83,14 @@ def run_ticket(ctx: LoopContext, ticket: Ticket) -> TicketState:
             ws.transition(TicketState.FAILED)
         ctx.store.update_status(ticket.id, "failed", note=str(e)[:500])
 
-    # Retro runs for every terminal outcome; its own failure must not mask one.
-    try:
-        run_retro(ctx, ws)
-    except AgentError as e:
-        ui.info(f"[yellow]retro skipped ({e})[/yellow]")
+    # Retro runs once, when the ticket first reaches PR_OPEN or a terminal
+    # state (all artifacts exist by then); its failure must not mask the run's.
+    if not ws.get_field("retro_done"):
+        try:
+            run_retro(ctx, ws)
+            ws.set_field("retro_done", True)
+        except AgentError as e:
+            ui.info(f"[yellow]retro skipped ({e})[/yellow]")
 
     append_metrics(
         ctx.settings.metrics_file,
@@ -102,16 +105,59 @@ def run_ticket(ctx: LoopContext, ticket: Ticket) -> TicketState:
     return ws.status
 
 
-def run_loop(ctx: LoopContext, only_ticket: str | None = None, max_tickets: int = 0) -> None:
+def groom_backlog(ctx: LoopContext, tickets: list[Ticket]) -> None:
+    """Interactive grooming pass over every NEW ticket, before any triage."""
+    fresh = [
+        t
+        for t in tickets
+        if TicketWorkspace.open(ctx.settings.tickets_dir, t).status == TicketState.NEW
+    ]
+    if not fresh:
+        return
+    ui.info(f"grooming {len(fresh)} new ticket(s) — this is interactive")
+    for ticket in fresh:
+        ws = TicketWorkspace.open(ctx.settings.tickets_dir, ticket)
+        try:
+            run_groom(ctx, ws, tickets)
+        except Exception as e:
+            # Grooming is best-effort enrichment: never let it block triage.
+            ui.info(f"[yellow]grooming failed for {ticket.id} ({e}) — leaving as new[/yellow]")
+
+
+def babysit_open_prs(ctx: LoopContext, tickets: list[Ticket]) -> None:
+    """One pass over every PR_OPEN ticket: merged/closed/events/quiet."""
+    for ticket in tickets:
+        ws = TicketWorkspace.open(ctx.settings.tickets_dir, ticket)
+        if ws.status != TicketState.PR_OPEN:
+            continue
+        try:
+            run_babysit(ctx, ws)
+        except Exception as e:
+            ui.info(f"[red]babysit failed for {ticket.id}: {e}[/red]")
+
+
+def run_loop(
+    ctx: LoopContext,
+    only_ticket: str | None = None,
+    max_tickets: int = 0,
+    skip_groom: bool = False,
+) -> None:
     tickets = ctx.store.fetch_tickets()
     if only_ticket:
         tickets = [t for t in tickets if t.id == only_ticket]
         if not tickets:
             raise SystemExit(f"ticket {only_ticket!r} not found in the tickets file")
+
+    # A developer's day, in order: check on open PRs (existing commitments),
+    # groom what's new, then take on work.
+    babysit_open_prs(ctx, tickets)
+    if not skip_groom:
+        groom_backlog(ctx, tickets)
+
     handled = 0
     for ticket in tickets:
         ws = TicketWorkspace.open(ctx.settings.tickets_dir, ticket)
-        if ws.status in TERMINAL_STATES:
+        if ws.status in TERMINAL_STATES or ws.status == TicketState.PR_OPEN:
             continue
         outcome = run_ticket(ctx, ticket)
         handled += 1
@@ -119,4 +165,4 @@ def run_loop(ctx: LoopContext, only_ticket: str | None = None, max_tickets: int 
         if max_tickets and handled >= max_tickets:
             break
     if handled == 0:
-        ui.info("nothing to do — all tickets are in terminal states")
+        ui.info("no tickets to work — everything is parked, terminal, or awaiting PR events")

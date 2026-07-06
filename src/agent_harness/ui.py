@@ -75,6 +75,20 @@ def plan_gate() -> tuple[str, str]:
             console.print("[red]a / c / e / r / d[/red]")
 
 
+def choice(options: dict[str, str]) -> str:
+    """Generic single-key menu: {'a': 'accept', 'd': 'defer'} → returns the key."""
+    legend = "  ".join(
+        f"[bold][{key}][/bold]{label[1:] if label.startswith(key) else ' ' + label}"
+        for key, label in options.items()
+    )
+    console.print(f"\n{legend}")
+    while True:
+        picked = Prompt.ask("[green]choice[/green]").strip().lower()
+        if picked in options:
+            return picked
+        console.print(f"[red]{' / '.join(options)}[/red]")
+
+
 def confirm(question: str, default: bool = True) -> bool:
     suffix = "[Y/n]" if default else "[y/N]"
     answer = Prompt.ask(f"{question} {suffix}", default="y" if default else "n").strip().lower()
