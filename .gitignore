@@ -1,0 +1,16 @@
+# Environments
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+
+# Per-run state (demo output; keep folder structure via .gitkeep)
+tickets/
+metrics.jsonl
