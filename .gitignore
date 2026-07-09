@@ -1,16 +1,10 @@
-# Environments
-.env
-.env.*
-!.env.example
+# Local ticket details, plans, validation output, and lifecycle state.
+.agents/work-items/*
+!.agents/work-items/.gitkeep
 
-# Python
+# Local tooling caches.
 .venv/
 __pycache__/
-*.pyc
 .pytest_cache/
 .ruff_cache/
-dist/
-
-# Per-run state (demo output; keep folder structure via .gitkeep)
-tickets/
-metrics.jsonl
+*.pyc
