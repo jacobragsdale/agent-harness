@@ -1,0 +1,78 @@
+{
+  "count": 4,
+  "value": [
+    {
+      "id": 4211,
+      "url": "https://dev.azure.com/example/Billing/_apis/wit/workItems/4211",
+      "fields": {
+        "System.Id": 4211,
+        "System.Title": "Retry failed invoice posts",
+        "System.WorkItemType": "Bug",
+        "System.State": "Active",
+        "System.Reason": "Investigation started",
+        "System.TeamProject": "Billing",
+        "System.AreaPath": "Billing\\Payments",
+        "System.IterationPath": "Billing\\Sprint 24",
+        "System.Tags": "billing; reliability",
+        "System.Description": "<p>Transient posting failures are dropped instead of retried.</p>",
+        "Microsoft.VSTS.Common.AcceptanceCriteria": "<ul><li>Retry transient failures.</li><li>Keep the original error.</li></ul>",
+        "Microsoft.VSTS.TCM.ReproSteps": "<ol><li>Return HTTP 503.</li><li>Observe no retry.</li></ol>",
+        "System.AssignedTo": {
+          "displayName": "Avery Example",
+          "uniqueName": "avery@example.com"
+        },
+        "System.CreatedDate": "2026-01-05T14:10:00Z",
+        "System.ChangedDate": "2026-01-06T10:30:00Z",
+        "Microsoft.VSTS.Common.Priority": 1,
+        "Microsoft.VSTS.Common.BacklogPriority": 1000,
+        "Microsoft.VSTS.Common.StackRank": 1000,
+        "Microsoft.VSTS.Common.Severity": "2 - High"
+      }
+    },
+    {
+      "id": 4212,
+      "url": "https://dev.azure.com/example/Billing/_apis/wit/workItems/4212",
+      "fields": {
+        "System.Id": 4212,
+        "System.Title": "Retry failed invoice posting",
+        "System.WorkItemType": "Product Backlog Item",
+        "System.State": "New",
+        "System.TeamProject": "Billing",
+        "System.Tags": "billing; duplicate-candidate",
+        "System.Description": "<p>Retry failed calls to the invoice posting service.</p>",
+        "System.CreatedDate": "2026-01-04T14:10:00Z",
+        "System.ChangedDate": "2026-01-04T14:10:00Z",
+        "Microsoft.VSTS.Common.Priority": 2
+      }
+    },
+    {
+      "id": 4213,
+      "url": "https://dev.azure.com/example/Billing/_apis/wit/workItems/4213",
+      "fields": {
+        "System.Id": 4213,
+        "System.Title": "Retired invoice connector",
+        "System.WorkItemType": "Task",
+        "System.State": "Closed",
+        "System.TeamProject": "Billing",
+        "System.Description": "<p>Finished work.</p>",
+        "System.CreatedDate": "2025-12-01T14:10:00Z",
+        "System.ChangedDate": "2026-01-03T14:10:00Z"
+      }
+    },
+    {
+      "id": 4214,
+      "url": "https://dev.azure.com/example/Billing/_apis/wit/workItems/4214",
+      "fields": {
+        "System.Id": 4214,
+        "System.Title": "Document invoice retry policy",
+        "System.WorkItemType": "Task",
+        "System.State": "New",
+        "System.TeamProject": "Billing",
+        "System.Tags": "documentation",
+        "System.Description": "<p>Write the operational retry policy.</p>",
+        "System.CreatedDate": "2025-11-01T14:10:00Z",
+        "System.ChangedDate": "2025-11-02T14:10:00Z"
+      }
+    }
+  ]
+}

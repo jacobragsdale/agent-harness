@@ -25,26 +25,35 @@ write code. Hand those requests to `/develop-ticket` after a work brief exists.
 
 ## Workflow
 
-1. Read existing briefs with `uv run .agents/skills/backlog-triage/scripts/brief.py list`.
-   Treat an existing ready brief as in-flight context; do not nominate it again
-   unless the developer asks to revisit it.
-2. Read the backlog from the source the developer supplied. Prefer its primary
-   ticket system or export over summaries. Extract the ticket ID, source link,
-   title, description, acceptance criteria, current state, and any priority or
-   age signals.
-3. Do the judgment work in one pass: identify duplicates, stale items, missing
+When this workflow names a database subcommand, run it through
+`uv run .agents/skills/backlog-triage/scripts/backlog_db.py`.
+
+1. Start from the local SQLite cache. Run
+   `uv run .agents/skills/backlog-triage/scripts/backlog_db.py init`, then
+   `query candidates` and `query in-flight`. Treat cached source facts and
+   recorded brief status as the backlog read model; do not scan raw exports in
+   the conversation.
+2. When the source is Azure DevOps, read
+   `resources/azure-devops-fields.md`. Import a Work Items Batch response with
+   `import-azure-export --file <export.json>`. The helper rejects exports that
+   omit the required reference fields. Confirm the process's terminal-state
+   names with `terminal-states list` and replace them when they differ.
+3. Use `query stale` for neglected candidates and `query duplicates --ticket-id
+   <id>` for a likely duplicate. These are candidate sets, not decisions: read
+   the matching ticket detail before declaring a duplicate or priority.
+4. Do the judgment work in one pass: identify duplicates, stale items, missing
    information, likely target repository, dependencies, urgency, and a
    recommended small batch. Do not inspect code or design an implementation.
-4. Show the developer a short ranked recommendation. For every proposed item,
+5. Show the developer a short ranked recommendation. For every proposed item,
    give the ticket ID, title, target repository, one-line rationale, and any
    unresolved decision. Ask them which items to accept, defer, reject, or split.
    Never create briefs or change remote tickets before that answer.
-5. For each accepted item, run `brief.py init` to create
+6. For each accepted item, run `brief.py init` to create
    `.agents/work-items/<ticket-id>/BRIEF.md`. Use `--description-file` for a
    long ticket body and `--description` for short text. The script creates the
    durable Markdown shape; edit the empty triage fields in place afterward.
    For example: `uv run .agents/skills/backlog-triage/scripts/brief.py init --id <id> --title <title> --source <source> --repo <repo-and-path> --description-file <file>`.
-6. Complete every field below, change `Status` to `ready`, and show the brief
+7. Complete every field below, change `Status` to `ready`, and show the brief
    back to the developer:
 
    - target repository and its local path
@@ -53,7 +62,11 @@ write code. Hand those requests to `/develop-ticket` after a work brief exists.
    - explicit constraints and out-of-scope work
    - dependencies, risks, and genuinely unresolved questions
 
-7. End with the ready ticket IDs and the exact next invocation:
+8. Run `record-brief --brief <path>` after each accepted brief is complete.
+   Record rejected, deferred, and duplicate outcomes with `record-decision`.
+   The cache therefore excludes handled work without hiding the decision
+   history.
+9. End with the ready ticket IDs and the exact next invocation:
    `/develop-ticket <ticket-id>`. Do not start development in this task.
 
 ## Example
@@ -71,6 +84,13 @@ the original error), and mark it `ready`. Finish with:
 - `scripts/brief.py` — **run** to initialise, list, or display the canonical
   Markdown work briefs. It owns only file layout and never makes triage
   decisions.
+- `scripts/backlog_db.py` — **run** to initialise the ignored SQLite cache,
+  import Azure DevOps exports, record decisions and briefs, and run named
+  triage queries.
+- `resources/azure-devops-fields.md` — **read** before importing Azure DevOps
+  data. It defines the supported reference names and required batch response.
+- `resources/triage-queries.sql` — **read** when adapting a named query; do
+  not add ad-hoc SQL to the skill body.
 
 ## Improving this skill
 

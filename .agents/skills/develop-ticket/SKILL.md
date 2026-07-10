@@ -55,7 +55,9 @@ this skill's `scripts/` directory with `uv run`.
    exact reason as `overridden`. Then advance to `pr`.
 7. In `pr`, inspect the final diff, commit if needed, push the recorded branch,
    and create the pull request. Record the real URL with `state.py record-pr`,
-   then advance to `done`. Report the URL and validation result.
+   then advance to `done`. Set the brief's status to `pr_open`; when the local
+   backlog database exists, run its `record-brief` command so later triage sees
+   this work as in flight. Report the URL and validation result.
 
 If code changes after validation, run `state.py invalidate-validation` before
 continuing. The state helper will block the pull-request stage until validation

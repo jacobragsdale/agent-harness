@@ -9,7 +9,8 @@ adapter, or headless session manager.
 ## Architecture
 
 - `.agents/skills/backlog-triage/` owns intake, prioritisation, and accepted
-  Markdown work briefs. It never changes target-repository code.
+  Markdown work briefs. Its SQLite database is a local read model for source
+  facts and recorded decisions; it never changes target-repository code.
 - `.agents/skills/develop-ticket/` owns one ready brief through plan approval,
   implementation, validation, and pull-request creation.
 - `.agents/work-items/` is ignored local runtime state. It contains ticket
