@@ -1,4 +1,4 @@
-# Agent Harness
+# Ticket Foreman
 
 An agent-native ticket workflow with two explicit tasks, both implemented in
 [`.agents/`](.agents/):

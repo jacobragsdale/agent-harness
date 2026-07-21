@@ -1,4 +1,4 @@
-# Agent Harness Workflows
+# Ticket Foreman Workflows
 
 All workflow behaviour lives in this folder.
 
